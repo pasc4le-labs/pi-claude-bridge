@@ -2,10 +2,22 @@
 
 [![npm version](https://img.shields.io/npm/v/pi-claude-bridge)](https://www.npmjs.com/package/pi-claude-bridge)
 
+> **Fork.** This is a fork of
+> [elidickinson/pi-claude-bridge](https://github.com/elidickinson/pi-claude-bridge),
+> maintained by [pasc4le-labs](https://github.com/pasc4le-labs), and it adds
+> exactly one feature — **per-directory Claude accounts**: a list of Claude Code
+> config directories plus cwd-prefix rules, so a session in `/srv/work` runs on
+> one login and one in `~/personal` on another, at the same time (see
+> [Claude accounts per directory](#claude-accounts-per-directory)).
+> It is not published to npm: install it from this repository. Everything else
+> below is upstream's behaviour, and upstream remains the place to report bugs
+> that are not about accounts.
+
 Pi extension that integrates Claude Code via the [Agent SDK](https://github.com/anthropics/claude-agent-sdk-typescript). Originally based on [claude-agent-sdk-pi](https://github.com/prateekmedia/claude-agent-sdk-pi) by Prateek Sunal.
 
 1. **Provider** — Use Opus/Sonnet/Haiku as models in pi, with all tool calls flowing through pi's TUI
 2. **AskClaude tool** — Delegate tasks or questions to Claude Code when using another provider
+3. **Per-directory accounts** *(fork)* — Run each session as the Claude Code login its cwd names
 
 
 **FYI:** Anthropic [announced and then unannounced](https://support.claude.com/en/articles/15036540-use-the-claude-agent-sdk-with-your-claude-plan) a change to how you would be billed for tools that use the Agent SDK like this one. It currently uses your regular subscription quota just like Claude Code.
@@ -19,6 +31,14 @@ Pi extension that integrates Claude Code via the [Agent SDK](https://github.com/
 
 ```
 pi install npm:pi-claude-bridge
+```
+
+This fork is not published to npm; install it from the repository (the install
+source is identified by its repository URL, so it can coexist with the npm
+package):
+
+```
+pi install git:github.com/pasc4le-labs/pi-claude-bridge@main
 ```
 
 Requires pi 0.86.1 or newer.
@@ -79,7 +99,87 @@ Config: `~/.pi/agent/claude-bridge.json` (global) or the project Pi config direc
 
 **Notices:** the startup notice points out when `provider.plan` is unset and records `startupNoticeShown` in the global config. There's also a deprecation notice on first use of AskClaude that records its display date as `askClaudeDeprecationShown`.
 
+`accounts` *(fork-only)* — the per-directory routing table, read from the global
+config file only; see [Claude accounts per directory](#claude-accounts-per-directory).
+
 **Extension providers and models.json:** pi's `modelOverrides` in `~/.pi/agent/models.json` do not currently apply to extension-registered providers (like claude-bridge). Overriding `contextWindow` or other fields requires editing `src/models.ts` directly — to pin a model to 200K, use `provider.forceTwoHundredK` instead.
+
+## Claude accounts per directory
+
+*Fork-only feature.* Run different Claude Code logins side by side, chosen by the
+directory a session runs in: `/srv/work/**` on a work subscription, `~/personal/**`
+on a personal one, anything unmatched on the login pi was started with.
+
+Nothing is signed in for you — an account is only a Claude Code config directory
+(`CLAUDE_CONFIG_DIR`), so create and log into one first, the same way you would
+for Claude Code on its own:
+
+```sh
+CLAUDE_CONFIG_DIR="$HOME/.claude-work" claude auth login
+```
+
+Then list the directories and the prefixes that select them in the **global**
+config file (`~/.pi/agent/claude-bridge.json`):
+
+```json
+{
+  "accounts": {
+    "dirs": {
+      "work": "~/.claude-work",
+      "client": "~/.claude-client-a",
+      "personal": "~/.claude-personal"
+    },
+    "paths": {
+      "/srv/work": "work",
+      "/srv/work/client-a": "client",
+      "~/personal": "personal"
+    }
+  }
+}
+```
+
+Routing rules:
+
+- The **longest matching prefix** wins, so a nested rule overrides its parent
+  (`/srv/work/client-a` beats `/srv/work`).
+- A prefix matches on a **path boundary**: `/srv/work` matches `/srv/work` and
+  `/srv/work/app`, never `/srv/workshop`. A trailing `/` in the config is
+  ignored.
+- No match → the launch account.
+- `default` is reserved for the launch account, so a rule can route a directory
+  back to it (`"/srv/scratch": "default"`).
+
+The **launch account** is the login pi itself was started with: it keeps
+`CLAUDE_CONFIG_DIR` exactly as you set it (Claude Code's own `~/.claude` when
+unset) and keeps any `ANTHROPIC_API_KEY` / `CLAUDE_CODE_OAUTH_TOKEN` /
+`ANTHROPIC_AUTH_TOKEN` from the environment. A **routed account** gets its own
+directory and drops those three variables: an env token wins over a config
+directory's stored login, so inheriting one would run every account as that
+single login while looking like routing worked.
+
+Details worth knowing:
+
+- **Global config only.** A project `.pi/claude-bridge.json` cannot reroute a
+  machine: one pi process serves sessions from several directories (pi-web
+  drives every session off one process cwd), so the table is read once per
+  process, from the global file. Restart pi after editing it.
+- **Per session, not per process.** Two sessions in different directories run
+  under different logins at the same time, each keeping its session files under
+  its own `<config dir>/projects/…`.
+- **Moving between accounts rotates.** If a session's cwd moves to another
+  account, the next turn starts a fresh Claude Code session there (another
+  config directory cannot `--resume` this one's file) and the old session file
+  is left where it is, so moving back still resumes it.
+- **Compaction and AskClaude follow the account.** Compaction/branch-summary
+  queries run as the conversation's account; AskClaude runs as the account of
+  the session that called it.
+- **Bad entries are reported, never fatal.** A missing directory, a relative
+  path, a rule naming an unknown account or an unparseable `accounts` block is
+  written to the log at startup and shown as a TUI warning; the affected
+  directories fall back to the launch account.
+- **Debugging:** `CLAUDE_BRIDGE_DEBUG=1` logs the table at activation and the
+  account of every query (`account=work (/home/you/.claude-work)`), and every
+  session-rebuild line names the account it moved between.
 
 ## Tests
 

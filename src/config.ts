@@ -7,6 +7,7 @@
 import { CONFIG_DIR_NAME, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
 import { dirname, join } from "path";
+import type { AccountsConfig } from "./accounts.js";
 
 export interface Config {
 	/** Date (YYYY-MM-DD) the one-time startup notice was shown. Written by the extension, not the user. */
@@ -23,6 +24,10 @@ export interface Config {
 		allowFullMode?: boolean;
 		appendSkills?: boolean;
 	};
+	/** Per-directory Claude Code accounts. Read from the GLOBAL config file
+	 *  only, via loadAccountsConfig(), and validated by accounts.ts — loadConfig
+	 *  does not merge it, so a project file cannot reroute a machine. */
+	accounts?: AccountsConfig;
 	/** Low-level Claude Agent SDK plumbing. Most users won't need these. */
 	provider?: {
 		strictMcpConfig?: boolean;
@@ -56,6 +61,20 @@ export function claudeCodeSettings(provider: Config["provider"] = {}): { autoMem
 
 export function globalConfigPath(): string {
 	return join(getAgentDir(), "claude-bridge.json");
+}
+
+/** The global config's raw `accounts` block: per-directory Claude Code routing.
+ *
+ *  Global-only by design. One pi process serves sessions from several
+ *  directories (a host like pi-web drives every session off one process cwd),
+ *  while the router this feeds decides each Claude Code child's
+ *  CLAUDE_CONFIG_DIR — so reading a project-relative file would apply the
+ *  routing table of whichever directory happened to start the process.
+ *
+ *  Returned unvalidated: the caller parses it (see accounts.ts), because a
+ *  routing table with a typo has to be reported, not silently ignored. */
+export function loadAccountsConfig(): unknown {
+	return tryParseJson(globalConfigPath()).accounts;
 }
 
 /** Record today's date in the global config so the startup notice shows once, preserving every
