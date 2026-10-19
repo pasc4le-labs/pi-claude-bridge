@@ -176,7 +176,12 @@ Details worth knowing:
 - **Bad entries are reported, never fatal.** A missing directory, a relative
   path, a rule naming an unknown account or an unparseable `accounts` block is
   written to the log at startup and shown as a TUI warning; the affected
-  directories fall back to the launch account.
+  directories fall back to the launch account. Two silent shapes are named
+  explicitly: `dirs` without any `paths` rule ("defines N accounts but
+  accounts.paths has no rules"), and a `paths`/`dirs` block written at the top
+  level of the file instead of inside `accounts` — both parse fine and route
+  nothing, so the only other symptom would be Claude answering on the wrong
+  subscription.
 - **Debugging:** `CLAUDE_BRIDGE_DEBUG=1` logs the table at activation and the
   account of every query (`account=work (/home/you/.claude-work)`), and every
   session-rebuild line names the account it moved between.

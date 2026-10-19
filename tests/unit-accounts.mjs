@@ -111,6 +111,18 @@ describe("parseAccounts", () => {
 		assert.equal(r.resolve("/srv/work/x").name, "work", "a directory created later must not reroute to the launch login");
 	});
 
+	// Dirs without rules is the silent version of the same mistake: the table
+	// looks configured and can never match anything.
+	it("reports accounts that no rule can ever select", () => {
+		const { router: r, problems } = router({ dirs: { work: "/srv/claude-work" } });
+		assert.match(problems.join("\n"), /accounts\.dirs defines 1 account but accounts\.paths has no rules/);
+		assert.equal(r.resolve("/srv/claude-work/x").name, "default", "an account's own directory is not a rule");
+		// Not reported when there is nothing to route: an empty or absent block is
+		// the pre-accounts configuration.
+		assert.deepEqual(router({ dirs: {} }).problems, []);
+		assert.deepEqual(router(undefined).problems, []);
+	});
+
 	it("keeps the first of two rules that normalize to the same prefix", () => {
 		const { router: r, problems } = router({
 			dirs: { a: "/a", b: "/b" },

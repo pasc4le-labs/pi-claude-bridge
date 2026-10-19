@@ -3,6 +3,7 @@
 ## UNRELEASED
 
 - **Add: per-directory Claude accounts (fork)** — `accounts.dirs` maps names to Claude Code config directories and `accounts.paths` routes cwd prefixes to them (longest prefix wins, boundary-matched, `default` reserved for the launch login). A routed query points `CLAUDE_CONFIG_DIR` at that account for the Claude Code child and drops inherited `ANTHROPIC_API_KEY`/`CLAUDE_CODE_OAUTH_TOKEN`/`ANTHROPIC_AUTH_TOKEN`, which would otherwise win over the account's stored login. Session mirrors record their account, so a session that moves between accounts rotates to a fresh Claude Code session instead of resuming (or deleting) a file under another account's directory. Global config only; a broken table is logged and warned about rather than failing activation. Not upstream feature work: see the fork note in README.md. Tests: `tests/unit-accounts.mjs`, `tests/unit-account-routing.mjs`.
+- **Fix: routing tables that parse but cannot match are reported (fork)** — `dirs` with no `paths` rules, and a `paths`/`dirs` block written at the top level of the config file instead of inside `accounts`, both read as "nothing configured" and would otherwise fall back to the launch login with no symptom but the wrong subscription being billed.
 
 ## 0.9.3 — 2026-10-13
 

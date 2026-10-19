@@ -77,6 +77,19 @@ export function loadAccountsConfig(): unknown {
 	return tryParseJson(globalConfigPath()).accounts;
 }
 
+/** Fields that belong INSIDE `accounts` but that a hand-written config puts at
+ *  the top level. A misplaced block is not a typo the parser can catch — the
+ *  table reads as absent, so every directory silently falls back to the launch
+ *  login while nothing looks wrong. Named here so the caller can warn. */
+const MISPLACED_ACCOUNT_KEYS = ["paths", "dirs"] as const;
+
+/** Account-routing keys found at the top level of the global config, where they
+ *  do nothing. Empty when the block is where it belongs (or absent). */
+export function misplacedAccountsKeys(): string[] {
+	const raw = tryParseJson(globalConfigPath());
+	return MISPLACED_ACCOUNT_KEYS.filter((key) => key in raw && !(key in (raw.accounts ?? {})));
+}
+
 /** Record today's date in the global config so the startup notice shows once, preserving every
  *  other field. Returns the config path for display either way.
  *
