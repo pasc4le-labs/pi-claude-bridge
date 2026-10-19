@@ -24,6 +24,7 @@ import * as piAi from "@earendil-works/pi-ai";
 import * as piCodingAgent from "@earendil-works/pi-coding-agent";
 import * as piTui from "@earendil-works/pi-tui";
 import type { Skill } from "@earendil-works/pi-coding-agent";
+import type { Context } from "@earendil-works/pi-ai";
 // Type-only, so it is erased before any host resolves modules: nothing needs
 // the `pi-ai/compat` subpath at runtime just because we type against it.
 import type { getModels as hostGetModelsType } from "@earendil-works/pi-ai/compat";
@@ -137,6 +138,87 @@ export function keyHint(key: string, description: string): string {
 	}
 	return description;
 }
+
+// --- Transcript helpers ----------------------------------------------------
+
+type ContextMessage = Context["messages"][number];
+type TranscriptTool = NonNullable<Context["tools"]>[number];
+type SystemMessageLike = Extract<ContextMessage, { role: "system" }>;
+
+/** Text of a message's content: the string itself, or its text blocks joined. */
+export function localContentText(content: string | { type: string; text?: string }[], separator = "\n"): string {
+	if (typeof content === "string") return content;
+	return content
+		.filter((block) => block.type === "text")
+		.map((block) => block.text ?? "")
+		.join(separator);
+}
+
+/** The tools a transcript's system messages declare, replaying each delta. */
+export function localGetCurrentTools(messages: ContextMessage[]): TranscriptTool[] {
+	const tools = new Map<string, TranscriptTool>();
+	for (const message of messages) {
+		if (message.role !== "system") continue;
+		const system = message as SystemMessageLike & {
+			toolsAdded?: { name: string }[];
+			toolsRemoved?: { name: string }[];
+		};
+		for (const tool of system.toolsRemoved ?? []) tools.delete(tool.name);
+		for (const tool of system.toolsAdded ?? []) tools.set(tool.name, tool);
+	}
+	return [...tools.values()];
+}
+
+/** Every system message replayed into one: content appended, sections patched by
+ *  name, tools resolved like `localGetCurrentTools`. */
+export function localGetCurrentSystemMessage(messages: ContextMessage[]): SystemMessageLike {
+	const content: string[] = [];
+	const sections = new Map<string, unknown>();
+	let timestamp: number | undefined;
+	for (const message of messages) {
+		if (message.role !== "system") continue;
+		const system = message as SystemMessageLike & { sections?: Record<string, unknown> };
+		timestamp ??= system.timestamp;
+		const text = localContentText(system.content as string | { type: string; text?: string }[]);
+		if (text.length > 0) content.push(text);
+		for (const [name, value] of Object.entries(system.sections ?? {})) {
+			if (value === null) sections.delete(name);
+			else sections.set(name, value);
+		}
+	}
+	const tools = localGetCurrentTools(messages);
+	return {
+		role: "system",
+		content: content.join("\n\n"),
+		...(sections.size > 0 ? { sections: Object.fromEntries(sections) } : {}),
+		...(tools.length > 0 ? { toolsAdded: tools } : {}),
+		timestamp: timestamp ?? 0,
+	} as SystemMessageLike;
+}
+
+/** Host helper when the host has it (upstream pi-ai), else the local port —
+ *  omp's pi-ai carries none of these three. */
+function hostOrLocal<T>(module: HostModule, name: string, local: T): T {
+	const host = hostFn(module, name);
+	if (!host) return local;
+	return ((...args: never[]) => {
+		try {
+			const result = host(...args);
+			return result === undefined ? (local as (...a: never[]) => unknown)(...args) : result;
+		} catch (error) {
+			console.error(`claude-bridge: host ${name} failed: ${error}`);
+			return (local as (...a: never[]) => unknown)(...args);
+		}
+	}) as T;
+}
+
+export const contentText: typeof localContentText = hostOrLocal(host.ai, "contentText", localContentText);
+export const getCurrentTools: typeof localGetCurrentTools = hostOrLocal(host.ai, "getCurrentTools", localGetCurrentTools);
+export const getCurrentSystemMessage: typeof localGetCurrentSystemMessage = hostOrLocal(
+	host.ai,
+	"getCurrentSystemMessage",
+	localGetCurrentSystemMessage,
+);
 
 // --- TypeBox facade --------------------------------------------------------
 

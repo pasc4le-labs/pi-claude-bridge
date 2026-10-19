@@ -206,6 +206,7 @@ local fallback in `src/pi-host.ts`:
 |---|---|---|
 | `formatSkillsForPrompt` | host formatter | local port of it, identical output |
 | `keyHint` | host hint | host pi-tui's `keyHint`, else the plain description |
+| `contentText`, `getCurrentTools`, `getCurrentSystemMessage` | host helpers | local ports (omp's pi-ai has none of the three) |
 | `getModels("anthropic")` | `pi-ai/compat` subpath | pi-ai root (`getModels` → `getBundledModels`) |
 | `Type` (TypeBox) | pi-ai root | pi-ai root (omp's facade), else the `typebox` peer |
 
