@@ -252,6 +252,14 @@ export function parseAccounts(
 	}
 
 	const configured = [...accounts.values()].filter((account) => account !== LAUNCH_ACCOUNT);
+	// Accounts without rules is the silent half of the same mistake: the table
+	// looks configured and routes nothing. Reported, not fatal — dirs alone is
+	// legal, and a rule added later must not require a code change.
+	if (configured.length > 0 && rules.length === 0) {
+		problems.push(
+			`accounts.dirs defines ${configured.length} account${configured.length === 1 ? "" : "s"} but accounts.paths has no rules — every directory still runs on the launch login (add e.g. "paths": { "/srv/work": "work" } inside the "accounts" block)`,
+		);
+	}
 	return { router: buildRouter(configured, rules, problems), problems };
 }
 

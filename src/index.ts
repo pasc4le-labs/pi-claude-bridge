@@ -15,7 +15,7 @@ import { verifyWrittenSession as _verifyWrittenSession } from "./session-verify.
 import { extractAllToolResults as _extractAllToolResults, type McpResult } from "./extract-tool-results.js";
 import { QueryContext, ctx } from "./query-state.js";
 import { makePromptStream, userMessage, type PromptStream } from "./prompt-stream.js";
-import { claudeCodeSettings, globalConfigPath, loadAccountsConfig, loadConfig, markAskClaudeDeprecationNoticeShown, markStartupNoticeShown, type Config } from "./config.js";
+import { claudeCodeSettings, globalConfigPath, loadAccountsConfig, loadConfig, markAskClaudeDeprecationNoticeShown, markStartupNoticeShown, misplacedAccountsKeys, type Config } from "./config.js";
 import {
 	accountClaudeDir,
 	accountEnv,
@@ -953,6 +953,11 @@ export const __test = {
 	/** Replace the account routing table (tests; production sets it at activation). */
 	setAccountRouter(router: AccountRouter | null) {
 		accountRouter = router ?? EMPTY_ACCOUNT_ROUTER;
+	},
+	/** Let a later session_start report routing problems again (tests only: one
+	 *  process reports them once, which is the behaviour production wants). */
+	resetAccountProblemNotice() {
+		accountProblemsReported = false;
 	},
 	getAccountRouter: () => accountRouter,
 	accountFor,
@@ -2518,6 +2523,15 @@ export default function (pi: ExtensionAPI) {
 	const parsedAccounts = parseAccounts(loadAccountsConfig());
 	accountRouter = parsedAccounts.router;
 	accountProblems = [...parsedAccounts.problems];
+	// A `paths`/`dirs` block written at the top level of the file instead of
+	// inside `accounts` reads as "no routing configured", so it would otherwise
+	// fall back to the launch login with nothing to notice. Name it.
+	const misplaced = misplacedAccountsKeys();
+	if (misplaced.length > 0) {
+		accountProblems.push(
+			`${misplaced.map((key) => `"${key}"`).join(" and ")} found at the top level of ${globalConfigPath()} — account routing must be nested under "accounts" ({\"accounts\": {\"dirs\": …, \"paths\": …}}); the top-level block is ignored`,
+		);
+	}
 	for (const problem of accountProblems) console.error(`claude-bridge: accounts: ${problem}`);
 	if (accountRouter.rules.length > 0) {
 		debug(`accounts: ${accountRouter.accounts.length} account(s), ${accountRouter.rules.length} path rule(s):`,
