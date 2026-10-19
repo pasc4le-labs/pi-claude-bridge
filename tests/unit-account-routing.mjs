@@ -18,7 +18,7 @@ import { join } from "node:path";
 import { openSession } from "cc-session-io";
 import activate, { __test } from "../src/index.js";
 import { parseAccounts } from "../src/accounts.js";
-import { globalConfigPath, loadAccountsConfig } from "../src/config.js";
+import { globalConfigPath, loadAccountsConfig, misplacedAccountsKeys } from "../src/config.js";
 import { forgetSessionCwd, rememberSessionCwd } from "../src/session-cwd.js";
 
 /** The directory Claude Code uses when nothing routes the query: pi's own. */
@@ -224,13 +224,39 @@ describe("account routing", () => {
 		assert.equal(__test.accountFor("/srv/work/x").configDir, null);
 
 		const notified = [];
-		const ui = { notify: (message, level) => notified.push({ message, level }) };
-		startSession(bridge, "s-broken", launchCwd, ui);
+		__test.resetAccountProblemNotice();
+		startSession(bridge, "s-broken", launchCwd, { notify: (message, level) => notified.push({ message, level }) });
 
 		assert.equal(notified.length, 1);
 		assert.equal(notified[0].level, "warning");
 		assert.match(notified[0].message, /accounts\.dirs\.work: "relative\/dir" is not absolute/);
 		assert.match(notified[0].message, /accounts\.paths\["\/srv\/work"\]: no account named "nope"/);
+	});
+
+	// The mistake this exists for: `paths` written as a sibling of `accounts`.
+	// Everything parses, nothing routes, and without this the only symptom is
+	// Claude answering on the wrong subscription.
+	it("reports a routing table written at the wrong nesting level", () => {
+		mkdirSync(process.env.PI_CODING_AGENT_DIR, { recursive: true });
+		writeFileSync(globalConfigPath(), JSON.stringify({
+			startupNoticeShown: "2026-09-22",
+			accounts: { dirs: { work: "~/.claude-work" } },
+			paths: { "~/Developer/Work": "work" },
+		}));
+
+		assert.deepEqual(misplacedAccountsKeys(), ["paths"]);
+		const bridge = activateBridge();
+		assert.equal(__test.getAccountRouter().rules.length, 0, "a top-level paths block routes nothing");
+
+		const notified = [];
+		__test.resetAccountProblemNotice();
+		startSession(bridge, "s-misplaced", launchCwd, { notify: (message, level) => notified.push({ message, level }) });
+		assert.equal(notified.length, 1);
+		assert.match(notified[0].message, /"paths" found at the top level/);
+		assert.match(notified[0].message, /must be nested under "accounts"/);
+		// And the block that IS in the right place still gets its own warning:
+		// accounts with no rules can never match.
+		assert.match(notified[0].message, /accounts\.dirs defines 1 account but accounts\.paths has no rules/);
 	});
 });
 
