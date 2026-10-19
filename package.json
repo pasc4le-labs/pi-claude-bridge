@@ -1,8 +1,8 @@
 {
-  "name": "pi-claude-bridge",
-  "version": "0.9.3",
+  "name": "@pasc4le-labs/pi-claude-bridge",
+  "version": "0.9.4",
   "private": false,
-  "description": "Pi extension that uses Claude Code (via Agent SDK) as a model provider and adds an AskClaude tool.",
+  "description": "Pi extension that uses Claude Code (via Agent SDK) as a model provider, adds an AskClaude tool, and runs each session as the Claude Code account its directory names (fork of elidickinson/pi-claude-bridge)",
   "keywords": [
     "pi-package",
     "pi",
@@ -10,12 +10,16 @@
     "claude-code",
     "claude-agent-sdk"
   ],
-  "author": "Eli Dickinson",
+  "author": "Eli Dickinson (upstream); pasc4le-labs (fork)",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/elidickinson/pi-claude-bridge.git"
+    "url": "git+https://github.com/pasc4le-labs/pi-claude-bridge.git"
   },
+  "bugs": {
+    "url": "https://github.com/pasc4le-labs/pi-claude-bridge/issues"
+  },
+  "homepage": "https://github.com/pasc4le-labs/pi-claude-bridge#readme",
   "engines": {
     "node": ">=20"
   },
