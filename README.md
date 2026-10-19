@@ -192,6 +192,27 @@ Details worth knowing:
 
 Integration tests spawn real `pi` and Claude Code subprocesses and need write access to `~/.claude` — a sandbox that blocks it makes `--resume` fail with `No conversation found with session ID`.
 
+## Running under oh-my-pi (omp)
+
+This extension loads under [oh-my-pi](https://www.npmjs.com/package/oh-my-pi) as well as
+upstream pi. omp serves `@earendil-works/pi-*` imports from its own bundled packages
+through a legacy shim, and that shim is missing two symbols upstream pi exports
+(`formatSkillsForPrompt`, `keyHint`) and does not carry the `pi-ai/compat` subpath.
+A static named import of any of those is a *load-time* failure — the extension never
+starts — so every host symbol this extension needs is read through a namespace with a
+local fallback in `src/pi-host.ts`:
+
+| Symbol | Upstream pi | omp |
+|---|---|---|
+| `formatSkillsForPrompt` | host formatter | local port of it, identical output |
+| `keyHint` | host hint | host pi-tui's `keyHint`, else the plain description |
+| `getModels("anthropic")` | `pi-ai/compat` subpath | pi-ai root (`getModels` → `getBundledModels`) |
+| `Type` (TypeBox) | pi-ai root | pi-ai root (omp's facade), else the `typebox` peer |
+
+Nothing else changes: the provider, per-directory accounts, and the AskClaude tool
+behave the same on both hosts. Install with omp's own package command, e.g.
+`omp plugin install @pasc4le-labs/pi-claude-bridge` (or whatever your omp build calls it).
+
 ## Debugging
 
 Set `CLAUDE_BRIDGE_DEBUG=1` to enable debug output:

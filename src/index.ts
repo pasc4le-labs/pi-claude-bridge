@@ -1,6 +1,7 @@
 import { createAssistantMessageEventStream, type AssistantMessage, type AssistantMessageEventStream, type Context, type ImageContent, type Model, type SimpleStreamOptions, type TextContent, type Tool, type UserMessage } from "@earendil-works/pi-ai";
-import { getModels } from "@earendil-works/pi-ai/compat";
-import { buildSessionContext, keyHint, type ExtensionAPI, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { buildSessionContext, type ExtensionAPI, type ExtensionContext, type ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+// Host-resolved APIs: see pi-host.ts for why these two are not named imports.
+import { getModels, hostType, keyHint } from "./pi-host.js";
 import { query, type EffortLevel, type SDKMessage, type SettingSource } from "@anthropic-ai/claude-agent-sdk";
 import type { Base64ImageSource, ContentBlockParam } from "@anthropic-ai/sdk/resources";
 import { Text } from "@earendil-works/pi-tui";
@@ -2746,7 +2747,13 @@ export default function (pi: ExtensionAPI) {
 	const askDefaults = resolveAskClaudeDefaults(askConf);
 	askClaudeToolName = askConf?.name ?? "AskClaude";
 
-	if (askConf?.enabled) {
+	if (askConf?.enabled && !hostType()) {
+		// The opt-in tool needs a schema builder; the extension itself does not.
+		console.error(
+			"claude-bridge: AskClaude needs a TypeBox facade (the host pi-ai's `Type`, or the `typebox` peer dependency) — leaving the tool unregistered",
+		);
+	}
+	if (askConf?.enabled && hostType()) {
 		const askClaudeParams = buildAskClaudeParams(askDefaults);
 		pi.registerTool<typeof askClaudeParams>({
 			name: askConf?.name ?? "AskClaude",

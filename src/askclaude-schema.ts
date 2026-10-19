@@ -1,5 +1,5 @@
 import { StringEnum } from "@earendil-works/pi-ai";
-import { Type } from "typebox";
+import { hostType } from "./pi-host.js";
 import type { Config } from "./config.js";
 
 export type AskClaudeMode = "full" | "read" | "none";
@@ -46,6 +46,15 @@ function modeDescription(defaults: AskClaudeDefaults): string {
 }
 
 export function buildAskClaudeParams(defaults: AskClaudeDefaults) {
+	// Resolved from the host (see pi-host.ts): the extension must load on a host
+	// that ships no standalone `typebox`, so the miss is reported here, where the
+	// caller can skip registering an opt-in tool, instead of at module load.
+	const Type = hostType();
+	if (!Type) {
+		throw new Error(
+			"no TypeBox facade available — the host does not export `Type` from pi-ai and the `typebox` peer dependency is not installed",
+		);
+	}
 	const visibility = defaults.isolated
 		? "By default Claude sees only this prompt (isolated session)."
 		: "By default Claude sees the full conversation history.";

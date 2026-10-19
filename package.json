@@ -1,6 +1,6 @@
 {
   "name": "@pasc4le-labs/pi-claude-bridge",
-  "version": "0.9.4",
+  "version": "0.9.5",
   "private": false,
   "description": "Pi extension that uses Claude Code (via Agent SDK) as a model provider, adds an AskClaude tool, and runs each session as the Claude Code account its directory names (fork of elidickinson/pi-claude-bridge)",
   "keywords": [
