@@ -1,6 +1,6 @@
 # pi-claude-bridge
 
-[![npm version](https://img.shields.io/npm/v/pi-claude-bridge)](https://www.npmjs.com/package/pi-claude-bridge)
+[![npm version](https://img.shields.io/npm/v/@pasc4le-labs/pi-claude-bridge)](https://www.npmjs.com/package/@pasc4le-labs/pi-claude-bridge)
 
 > **Fork.** This is a fork of
 > [elidickinson/pi-claude-bridge](https://github.com/elidickinson/pi-claude-bridge),
@@ -9,9 +9,11 @@
 > config directories plus cwd-prefix rules, so a session in `/srv/work` runs on
 > one login and one in `~/personal` on another, at the same time (see
 > [Claude accounts per directory](#claude-accounts-per-directory)).
-> It is not published to npm: install it from this repository. Everything else
-> below is upstream's behaviour, and upstream remains the place to report bugs
-> that are not about accounts.
+> It is published to npm under the scope this org owns
+> ([`@pasc4le-labs/pi-claude-bridge`](https://www.npmjs.com/package/@pasc4le-labs/pi-claude-bridge)),
+> because the unscoped name belongs to upstream. Everything else below is
+> upstream's behaviour, and upstream remains the place to report bugs that are
+> not about accounts.
 
 Pi extension that integrates Claude Code via the [Agent SDK](https://github.com/anthropics/claude-agent-sdk-typescript). Originally based on [claude-agent-sdk-pi](https://github.com/prateekmedia/claude-agent-sdk-pi) by Prateek Sunal.
 
@@ -30,12 +32,10 @@ Pi extension that integrates Claude Code via the [Agent SDK](https://github.com/
 ## Install
 
 ```
-pi install npm:pi-claude-bridge
+pi install npm:@pasc4le-labs/pi-claude-bridge
 ```
 
-This fork is not published to npm; install it from the repository (the install
-source is identified by its repository URL, so it can coexist with the npm
-package):
+Or straight from the repository (`@dev` tracks integration work):
 
 ```
 pi install git:github.com/pasc4le-labs/pi-claude-bridge@main
