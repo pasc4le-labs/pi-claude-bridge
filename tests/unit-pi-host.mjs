@@ -14,7 +14,7 @@ import { afterEach, describe, it } from "node:test";
 import assert from "node:assert/strict";
 import * as piCodingAgent from "@earendil-works/pi-coding-agent";
 import * as piAi from "@earendil-works/pi-ai";
-import { __setCompatCatalogForTest, __setHostForTest, __setTypeboxFallbackForTest, formatSkillsForPrompt, getModels, hostType, keyHint, localFormatSkillsForPrompt } from "../src/pi-host.js";
+import { __setCompatCatalogForTest, __setHostForTest, __setTypeboxFallbackForTest, contentText, formatSkillsForPrompt, getCurrentSystemMessage, getCurrentTools, getModels, hostType, keyHint, localContentText, localFormatSkillsForPrompt, localGetCurrentSystemMessage, localGetCurrentTools } from "../src/pi-host.js";
 import { buildAskClaudeParams } from "../src/askclaude-schema.js";
 
 /** The upstream subpath's catalog, which pi-host resolves at load. Read here so
@@ -103,6 +103,58 @@ describe("keyHint", () => {
 	it("never throws out of a render when the host hint rejects our keybinding", () => {
 		__setHostForTest({ codingAgent: { ...ompCodingAgent(), keyHint: () => { throw new Error("unknown keybinding"); } }, tui: {} });
 		assert.equal(keyHint("app.tools.expand", "to expand"), "to expand");
+	});
+});
+
+describe("transcript helpers", () => {
+	const sys = (over = {}) => ({ role: "system", content: "", timestamp: 7, ...over });
+
+	it("contentText returns strings as-is and joins only text blocks", () => {
+		assert.equal(contentText("plain"), "plain");
+		assert.equal(
+			contentText([{ type: "text", text: "a" }, { type: "thinking", thinking: "t" }, { type: "text", text: "b" }]),
+			"a\nb",
+		);
+		assert.equal(contentText([{ type: "text", text: "a" }, { type: "text", text: "b" }], " "), "a b");
+	});
+
+	it("getCurrentTools replays additions and removals across system messages", () => {
+		const messages = [
+			sys({ toolsAdded: [{ name: "read" }, { name: "bash" }] }),
+			{ role: "user", content: "hi", timestamp: 8 },
+			sys({ toolsRemoved: [{ name: "bash" }], toolsAdded: [{ name: "grep" }] }),
+		];
+		assert.deepEqual(getCurrentTools(messages).map((tool) => tool.name), ["read", "grep"]);
+	});
+
+	it("getCurrentSystemMessage appends content, patches sections and keeps the first timestamp", () => {
+		const messages = [
+			sys({ content: "base", sections: { docs: "d1", skills: "s1" }, toolsAdded: [{ name: "read" }] }),
+			sys({ content: "patched", sections: { docs: "d2", skills: null }, timestamp: 99 }),
+		];
+		const merged = getCurrentSystemMessage(messages);
+		assert.equal(merged.content, "base\n\npatched");
+		assert.deepEqual(merged.sections, { docs: "d2" });
+		assert.equal(merged.timestamp, 7, "the first system message owns the timestamp");
+		assert.deepEqual((merged.toolsAdded ?? []).map((tool) => tool.name), ["read"]);
+	});
+
+	it("matches the host's helpers byte for byte where the host has them", () => {
+		const messages = [
+			sys({ content: "base", sections: { docs: "d1" }, toolsAdded: [{ name: "read" }, { name: "bash" }] }),
+			sys({ content: [{ type: "text", text: "more" }], sections: { docs: null }, toolsRemoved: [{ name: "bash" }] }),
+		];
+		assert.deepEqual(localGetCurrentTools(messages), piAi.getCurrentTools(messages));
+		assert.deepEqual(localGetCurrentSystemMessage(messages), piAi.getCurrentSystemMessage(messages));
+		assert.equal(localContentText([{ type: "text", text: "x" }, { type: "text", text: "y" }]), piAi.contentText([{ type: "text", text: "x" }, { type: "text", text: "y" }]));
+	});
+
+	it("uses the local ports when the host carries none (omp)", () => {
+		const { contentText: _a, getCurrentTools: _b, getCurrentSystemMessage: _c, ...aiWithoutTranscript } = piAi;
+		__setHostForTest({ ai: aiWithoutTranscript });
+		assert.equal(contentText("plain"), "plain");
+		assert.deepEqual(getCurrentTools([sys({ toolsAdded: [{ name: "read" }] })]).map((tool) => tool.name), ["read"]);
+		assert.equal(getCurrentSystemMessage([sys({ content: "base" })]).content, "base");
 	});
 });
 

@@ -11,12 +11,11 @@
  * puts them.
  */
 import {
-	contentText,
-	getCurrentSystemMessage,
-	getCurrentTools,
 	type Context,
 	type SystemMessage,
 } from "@earendil-works/pi-ai";
+// Transcript helpers: omp's pi-ai does not carry these at all (see pi-host.ts).
+import { contentText, getCurrentSystemMessage, getCurrentTools } from "./pi-host.js";
 
 /** pi's canonical built-in section order. A name absent from the table is a custom
  *  section, which the builder renders after every built-in; see stableRanked.
