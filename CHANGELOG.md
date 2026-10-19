@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.6 — 2026-10-19
+
+- **Fix: omp loads past the pi-ai shim too (fork)** — 0.9.5 fixed the coding-agent surface, and omp then failed on `pi-ai`'s: `contentText`, `getCurrentTools` and `getCurrentSystemMessage` do not exist anywhere in `@oh-my-pi/pi-ai@18.12.2` ("Export named 'contentText' not found in module 'omp-legacy-pi-bundled:@oh-my-pi/pi-ai'"). They are ported into `src/pi-host.ts` from pi-ai's own implementations (content joined with blank lines, sections patched by name, tools replayed through their add/remove deltas) and used only when the host lacks them, so upstream pi keeps its own. The rest of the pi-ai surface omp does provide (`StringEnum`, `calculateCost`, `Type`, `getModels`, `createAssistantMessageEventStream`) stays as is. Tests: three cases in `tests/unit-pi-host.mjs`, including byte-for-byte equality with the host's helpers.
+
 ## 0.9.5 — 2026-10-19
 
 - **Fix: load under oh-my-pi (omp) (fork)** — omp aliases `@earendil-works/pi-*` onto its bundled packages through a legacy shim, which does not export `formatSkillsForPrompt` or `keyHint` and has no `pi-ai/compat` subpath. All three were static named imports, so omp failed the whole extension at load ("Failed to load extension: Export named 'formatSkillsForPrompt' not found in module 'omp-legacy-pi-bundled:@oh-my-pi/pi-coding-agent'"). Host symbols now resolve through namespaces in `src/pi-host.ts` with local fallbacks: a port of pi's skills formatter (byte-identical output), `keyHint` from the host or the plain description, the model catalog from the pi-ai root or the `/compat` subpath, and `Type` (TypeBox) from the host's pi-ai or the `typebox` peer. AskClaude stays unregistered, with a message, on a host that has no schema facade. Tests: `tests/unit-pi-host.mjs`.
